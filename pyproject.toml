@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flow_cytometry"
+description = "Flow cytometry analysis in Python."
+version = "0.0.1"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    {name = "Joseph McKenna"}
+]
+maintainers = [
+    {name = "Joseph McKenna", email = "jkmckenna@berkeley.edu"}
+]
+keywords = [
+  "flow-cytometry",
+  "anndata"
+]
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+dependencies = [
+    "numpy<2",
+    "matplotlib",
+    "scipy>=1.7.3",
+    "pandas>=2.2.0",
+    "anndata>=0.10.2",
+    "seaborn",
+    "ipykernel",
+    "FlowCytometryTools>=0.5.1"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flow_cytometry"]

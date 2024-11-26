@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+
+# Build files
+build/
+/dist/
+/hatch.toml
+/Pipfile
+/Pipfile.lock
+
+# Environments
+.env
+.venv
+/*-env/
+/*-venv/
+/env-*/
+/venv-*/
+venv/
+/environment.yml
+
+# Tests
+/tests/_test_inputs/
+/tests/_test_outputs/
+
+# OS
+.DS_Store
+.LSOverride
+Thumbs.db
+*.ipynb_checkpoints/
+*.directory
+
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# temp files
+/temp*
+/tmp*
+*.temp
+*.tmp
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Docs
