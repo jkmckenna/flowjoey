@@ -1,6 +1,6 @@
 #flow_animation
 
-def kde_2d_evolution(adata, x_cat, y_cat):
+def kde_2d_evolution(adata, x_cat, y_cat, constructs=False):
     """
     Calculate the KDE evolution over time for each constuct with adata over two dimensions of interest.
 
@@ -8,6 +8,7 @@ def kde_2d_evolution(adata, x_cat, y_cat):
         adata (AnnData):
         x_cat (str):
         y_cat (str):
+        constructs (list of str):
 
     Returns:
     """
@@ -15,7 +16,12 @@ def kde_2d_evolution(adata, x_cat, y_cat):
     import numpy as np
     from scipy.stats import gaussian_kde
 
-    for construct in adata.obs['Construct'].cat.categories:
+    if not constructs:
+        constructs = adata.obs['Construct'].cat.categories
+    else:
+        pass
+
+    for construct in constructs:
         if f'{construct}_kde_2d_values' in adata.uns:
             pass
         else:
@@ -51,7 +57,7 @@ def kde_2d_evolution(adata, x_cat, y_cat):
                 adata.uns[f'{construct}_kde_2d_values'] = False
                 print(f"KDE calculation failed for {construct}. Skipping this construct.")
 
-def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=0.1, num_steps=50, levels=20, outdir='', save_gif=False, save_html=False, xlim=False, ylim=False, zlim=False, plot_3d=False):
+def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50, levels=20, outdir='', save_gif=False, save_html=False, xlim=False, ylim=False, zlim=False, plot_3d=False):
     """
     Animate the 2D KDE plot.
     """
@@ -75,31 +81,15 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=0.1, num_steps=50, 
 
     kde_values, X, Y = adata.uns[f'{construct}_kde_2d_values']
 
-    if xlim:
-        x_min, x_max = xlim
-    else:
-        x_min, x_max = [construct_subset[x_cat].min(), construct_subset[x_cat].max()]
-
-    if ylim:
-        y_min, y_max = ylim
-    else:
-        y_min, y_max = [construct_subset[y_cat].min(), construct_subset[y_cat].max()]
-
-    if zlim:
-        z_min, z_max = zlim
-    else:
-        z_min, z_max = [0, 1.2 * np.max([np.max(k) for k in kde_values])]
+    # Set axis limits
+    x_min, x_max = xlim if xlim else (construct_subset[x_cat].min(), construct_subset[x_cat].max())
+    y_min, y_max = ylim if ylim else (construct_subset[y_cat].min(), construct_subset[y_cat].max())
+    z_min, z_max = zlim if zlim else (0, 1.2 * np.max([np.max(k) for k in kde_values]))
 
     if type(adata.uns[f'{construct}_kde_2d_values']) == list:
 
-        if not plot_3d:
-            # Create a 2D figure
-            fig, ax = plt.subplots(figsize=(6, 6))  # Square figure dimensions
-
-        else:
-            # Create a 3D figure
-            fig = plt.figure(figsize=(10, 8))
-            ax = fig.add_subplot(111, projection='3d')
+        fig = plt.figure(figsize=(10, 8)) if plot_3d else plt.figure(figsize=(6, 6))
+        ax = fig.add_subplot(111, projection='3d') if plot_3d else fig.add_subplot(111)
 
         # Initialize plot
         def init():
@@ -119,50 +109,39 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=0.1, num_steps=50, 
             ax.set_title(f"{construct} at 0 hours", pad=20)
             return ax,
 
-        if time_per_frame:
-            # Interpolation function
-            def interpolate_kde(frame_idx):
+        # Interpolation function
+        def interpolate_kde(frame_idx):
+            """
+            Interpolation function
+            """
+            if time_per_frame:
                 current_time = frame_times[frame_idx]
-                # Find the two nearest time points
                 for i in range(len(time_points) - 1):
                     if time_points[i] <= current_time < time_points[i + 1]:
                         start_idx, end_idx = i, i + 1
                         break
                 else:
-                    start_idx, end_idx = len(time_points) - 2, len(time_points) - 1  # Edge case for the last frame
-
-                # Linear interpolation between time points
+                    start_idx, end_idx = len(time_points) - 2, len(time_points) - 1
                 alpha = (current_time - time_points[start_idx]) / (time_points[end_idx] - time_points[start_idx])
-                interpolated_kde = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
+            else:
+                start_idx = frame_idx // num_steps
+                end_idx = min(start_idx + 1, len(kde_values) - 1)
+                alpha = (frame_idx % num_steps) / num_steps
+                current_time = (1 - alpha) * float(time_points[start_idx]) + alpha * float(time_points[end_idx])
 
-                return interpolated_kde, current_time
-        
-        else:
-            # Interpolate KDE values for smooth transitions
-            def interpolate_kde(frame, num_steps=num_steps):
-                """
-                Interpolation function
-                """
-                start_idx = frame // num_steps
-                end_idx = (frame // num_steps) + 1
-                alpha = (frame % num_steps) / num_steps
+            interpolated_kde = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
+            return interpolated_kde, current_time
 
-                if end_idx >= len(kde_values):
-                    end_idx = len(kde_values) - 1
-
-                # Interpolate between two KDE frames
-                interpolated_kde = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
-                interpolated_time = (1 - alpha) * float(time_points[start_idx]) + alpha * float(time_points[end_idx])
-                return interpolated_kde, interpolated_time
-
-        def update(frame, num_steps=num_steps, levels=levels):
+        def update(frame, levels=levels):
             """
             Update function for simulating KDE evolution
             """
+            ax.clear()
+
             if frame < total_frames:  # Forward
                 current_frame = frame
             else:  # Reverse
-                current_frame = 2 * total_frames - frame
+                current_frame = 2 * total_frames - frame - 1
 
             Z, interpolated_time = interpolate_kde(current_frame)
 
@@ -170,13 +149,12 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=0.1, num_steps=50, 
             ax.set_ylim(y_min, y_max)
             ax.set_xlabel(x_cat)
             ax.set_ylabel(y_cat)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
             ax.set_title(f"{construct} at {interpolated_time:.1f} hours", pad=20)
 
-            ax.clear()
             if not plot_3d:
                 # 2D plotting
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
                 contour = ax.contour(X, Y, Z, levels=levels, cmap="viridis")
                 return contour.collections
             else:
@@ -193,7 +171,8 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=0.1, num_steps=50, 
         else: 
             print(f"Animating 2D KDE for {construct}")
             prefix = 'KDE_2D'
-        num_frames = (len(time_points) - 1) * num_steps * 2  # Double for forward and reverse
+
+        num_frames = total_frames * 2  # Double for forward and reverse
         ani = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False, interval=40)
 
         if save_gif:
@@ -213,6 +192,8 @@ def plot_interactive_3d_kde(adata, construct, x_cat, y_cat):
     Create an interactive 3D KDE plot using Plotly.
     """
     import plotly.graph_objects as go
+    import plotly.io as pio
+    pio.renderers.default = "notebook"
     
     construct_subset = adata.obs[adata.obs['Construct'] == construct]
     kde_values, X, Y = adata.uns[f'{construct}_kde_2d_values']
@@ -239,6 +220,102 @@ def plot_interactive_3d_kde(adata, construct, x_cat, y_cat):
             zaxis_title="Density",
         ),
         margin=dict(l=0, r=0, b=0, t=40),
+    )
+
+    fig.show()
+
+
+def plotly_animate_kde(adata, construct, x_cat, y_cat):
+    """
+    Create an interactive 3D animation of KDE evolution using Plotly.
+    """
+    import plotly.graph_objects as go
+    import numpy as np
+    construct_subset = adata.obs[adata.obs['Construct'] == construct].copy()
+    kde_values, X, Y = adata.uns[f'{construct}_kde_2d_values']
+    time_points = construct_subset['time_cat'].cat.categories.astype(float)  # Ensure time points are numeric
+
+    # Create the base figure
+    fig = go.Figure()
+
+    # Add the first frame (initial state)
+    Z_initial = kde_values[0]
+    fig.add_trace(
+        go.Surface(
+            z=Z_initial,
+            x=X[0],  # X grid values
+            y=Y[:, 0],  # Y grid values
+            colorscale="Viridis",
+            name=f"Time {time_points[0]}",
+            showscale=False,
+        )
+    )
+
+    # Add frames for animation
+    frames = []
+    for i, Z in enumerate(kde_values):
+        frame = go.Frame(
+            data=[
+                go.Surface(
+                    z=Z,
+                    x=X[0],
+                    y=Y[:, 0],
+                    colorscale="Viridis",
+                    showscale=False,
+                )
+            ],
+            name=f"Time {time_points[i]:.1f}",
+        )
+        frames.append(frame)
+
+    fig.frames = frames
+
+    # Add sliders and animation controls
+    fig.update_layout(
+        title=f"3D KDE Animation for {construct}",
+        scene=dict(
+            xaxis_title=x_cat,
+            yaxis_title=y_cat,
+            zaxis_title="Density",
+        ),
+        updatemenus=[
+            {
+                "buttons": [
+                    {
+                        "args": [None, {"frame": {"duration": 500, "redraw": True}, "fromcurrent": True}],
+                        "label": "Play",
+                        "method": "animate",
+                    },
+                    {
+                        "args": [[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate", "transition": {"duration": 0}}],
+                        "label": "Pause",
+                        "method": "animate",
+                    },
+                ],
+                "direction": "left",
+                "pad": {"r": 10, "t": 87},
+                "showactive": False,
+                "type": "buttons",
+                "x": 0.1,
+                "xanchor": "right",
+                "y": 0,
+                "yanchor": "top",
+            }
+        ],
+        sliders=[
+            {
+                "steps": [
+                    {
+                        "args": [[f"Time {time_points[i]:.1f}"], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                        "label": f"{time_points[i]:.1f}",
+                        "method": "animate",
+                    }
+                    for i in range(len(time_points))
+                ],
+                "currentvalue": {"font": {"size": 20}, "prefix": "Time: ", "visible": True, "xanchor": "center"},
+                "transition": {"duration": 300, "easing": "cubic-in-out"},
+            }
+        ],
     )
 
     fig.show()

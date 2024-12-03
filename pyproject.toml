@@ -47,7 +47,8 @@ dependencies = [
     "numexpr>=2.8.4",
     "bottleneck>=1.3.6",
     "wxpython",
-    "plotly"
+    "plotly",
+    "nbformat>=4.2.0"
 ]
 
 [tool.hatch.build.targets.wheel]
