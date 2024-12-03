@@ -26,7 +26,7 @@ def kde_2d_evolution(adata, x_cat, y_cat, constructs=False):
             pass
         else:
             try:
-                print(f"Calculation KDE for {construct}")
+                print(f"Calculating KDE for {construct}")
                 construct_subset = adata.obs[adata.obs['Construct'] == construct].copy()
 
                 # Ensure `time_cat` is treated as an ordered categorical variable
@@ -67,6 +67,7 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
     from mpl_toolkits.mplot3d import Axes3D
     from matplotlib.animation import FuncAnimation, PillowWriter, HTMLWriter
     from matplotlib.gridspec import GridSpec
+    from tqdm import tqdm
 
     construct_subset = adata.obs[adata.obs['Construct'] == construct]
     time_points = construct_subset['time_cat'].cat.categories
@@ -88,19 +89,27 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
     z_min, z_max = zlim if zlim else (0, 1.2 * np.max([np.max(k) for k in kde_values]))
 
     if type(adata.uns[f'{construct}_kde_2d_values']) == list:
-
+        if plot_3d:
+           print(f"Animating 3D KDE for {construct}")
+           prefix = 'KDE_3D'
+        else: 
+            print(f"Animating 2D KDE for {construct}")
+            prefix = 'KDE_2D'
         # Create figure
         if add_histograms and not plot_3d:
-            fig = plt.figure(figsize=(10, 8))
-            gs = GridSpec(4, 4, figure=fig)
-            ax_main = fig.add_subplot(gs[1:4, 0:3])  # Main KDE plot
-            ax_top = fig.add_subplot(gs[0, 0:3], sharex=ax_main)  # X-axis histogram
-            ax_right = fig.add_subplot(gs[1:4, 3], sharey=ax_main)  # Y-axis histogram
+            fig = plt.figure(figsize=(12, 10))
+            gs = GridSpec(5, 5, figure=fig)
+            ax_main = fig.add_subplot(gs[1:5, 0:4])  # Main KDE plot
+            ax_top = fig.add_subplot(gs[0, 0:4], sharex=ax_main)  # X-axis histogram
+            ax_right = fig.add_subplot(gs[1:5, 4], sharey=ax_main)  # Y-axis histogram
             plt.setp(ax_top.get_xticklabels(), visible=False)
             plt.setp(ax_right.get_yticklabels(), visible=False)
         else:
             fig = plt.figure(figsize=(10, 8)) if plot_3d else plt.figure(figsize=(6, 6))
             ax_main = fig.add_subplot(111, projection='3d') if plot_3d else fig.add_subplot(111)
+
+        # Initialize progress bar
+        pbar = tqdm(total=total_frames * 2, desc="Rendering Frames")
 
         # Initialize plot
         def init():
@@ -111,6 +120,12 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
             if add_histograms and not plot_3d:
                 ax_top.clear()
                 ax_right.clear()
+                ax_top.spines['top'].set_visible(False)
+                ax_top.spines['right'].set_visible(False)
+                ax_top.spines['left'].set_visible(False)
+                ax_right.spines['top'].set_visible(False)
+                ax_right.spines['right'].set_visible(False)
+                ax_right.spines['left'].set_visible(False)
             ax_main.set_xlim(x_min, x_max)
             ax_main.set_ylim(y_min, y_max)
             ax_main.set_xlabel(x_cat)
@@ -154,6 +169,12 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
             if add_histograms and not plot_3d:
                 ax_top.clear()
                 ax_right.clear()
+                ax_top.spines['top'].set_visible(False)
+                ax_top.spines['right'].set_visible(False)
+                ax_top.spines['left'].set_visible(False)
+                ax_right.spines['top'].set_visible(False)
+                ax_right.spines['right'].set_visible(False)
+                ax_right.spines['left'].set_visible(False)
 
             if frame < total_frames:  # Forward
                 current_frame = frame
@@ -173,6 +194,7 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
                 ax_main.plot_surface(X, Y, Z, cmap="viridis", edgecolor="k", alpha=0.9)
                 ax_main.set_zlim(z_min, z_max)
                 ax_main.set_zlabel("Density")
+                pbar.update(1)  # Update progress bar
                 return ax_main,
     
             else:
@@ -182,27 +204,20 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
                 contour = ax_main.contour(X, Y, Z, levels=levels, cmap="viridis")
 
                 if add_histograms:
-                    # Update histograms
-                    current_data = construct_subset[
-                        construct_subset['time_cat'] == time_points[current_frame // num_steps]
-                    ]
-                    ax_top.hist(current_data[x_cat], bins=30, color="blue", alpha=0.6)
-                    ax_top.set_ylabel("Count")
+                    # Marginal histograms from KDE
+                    ax_top.bar(X[0, :], np.sum(Z, axis=0), width=np.diff(X[0, :])[0], color="blue", alpha=0.6)
+                    ax_top.set_ylabel("Density")
+                    ax_top.set_title(f"{construct} KDE at {interpolated_time:.1f} hours", fontsize=14, pad=20)
 
-                    ax_right.hist(current_data[y_cat], bins=30, color="green", alpha=0.6, orientation="horizontal")
-                    ax_right.set_xlabel("Count")
+                    ax_right.barh(Y[:, 0], np.sum(Z, axis=1), height=np.diff(Y[:, 0])[0], color="green", alpha=0.6)
+                    ax_right.set_xlabel("Density")
 
+                pbar.update(1)  # Update progress bar
                 return contour.collections
-            
-        if plot_3d:
-           print(f"Animating 3D KDE for {construct}")
-           prefix = 'KDE_3D'
-        else: 
-            print(f"Animating 2D KDE for {construct}")
-            prefix = 'KDE_2D'
 
         num_frames = total_frames * 2  # Double for forward and reverse
         ani = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False, interval=40)
+        pbar.close()  # Close progress bar
 
         if save_gif:
             # Save animation to output directory as a gif
@@ -215,6 +230,7 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
             output_html = os.path.join(outdir, f"{prefix}_{construct}_animation.html")
             ani.save(output_html, writer=HTMLWriter(fps=25))
             print(f"Animation saved to {output_html}")
+
 
 def plot_interactive_3d_kde(adata, construct, x_cat, y_cat):
     """
@@ -340,6 +356,125 @@ def plotly_animate_kde(adata, construct, x_cat, y_cat):
                         "method": "animate",
                     }
                     for i in range(len(time_points))
+                ],
+                "currentvalue": {"font": {"size": 20}, "prefix": "Time: ", "visible": True, "xanchor": "center"},
+                "transition": {"duration": 300, "easing": "cubic-in-out"},
+            }
+        ],
+    )
+
+    fig.show()
+
+def plotly_animate_kde_with_interpolation(adata, construct, x_cat, y_cat, num_steps=10):
+    """
+    Create an interactive 3D animation of KDE evolution using Plotly with interpolation.
+    """
+    import plotly.graph_objects as go
+    import numpy as np
+    construct_subset = adata.obs[adata.obs['Construct'] == construct]
+    kde_values, X, Y = adata.uns[f'{construct}_kde_2d_values']
+    time_points = construct_subset['time_cat'].cat.categories.astype(float)  # Ensure time points are numeric
+
+    # Create the base figure
+    fig = go.Figure()
+
+    # Add the first frame (initial state)
+    Z_initial = kde_values[0]
+    fig.add_trace(
+        go.Surface(
+            z=Z_initial,
+            x=X[0],  # X grid values
+            y=Y[:, 0],  # Y grid values
+            colorscale="Viridis",
+            name=f"Time {time_points[0]}",
+            showscale=False,
+        )
+    )
+
+    # Generate frames with interpolation
+    frames = []
+    for i in range(len(time_points) - 1):
+        start_idx, end_idx = i, i + 1
+        for step in range(num_steps):
+            # Linear interpolation
+            alpha = step / num_steps
+            Z_interpolated = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
+            interpolated_time = (1 - alpha) * time_points[start_idx] + alpha * time_points[end_idx]
+
+            frame = go.Frame(
+                data=[
+                    go.Surface(
+                        z=Z_interpolated,
+                        x=X[0],
+                        y=Y[:, 0],
+                        colorscale="Viridis",
+                        showscale=False,
+                    )
+                ],
+                name=f"Time {interpolated_time:.1f}",
+            )
+            frames.append(frame)
+
+    # Add the last frame
+    Z_last = kde_values[-1]
+    frames.append(
+        go.Frame(
+            data=[
+                go.Surface(
+                    z=Z_last,
+                    x=X[0],
+                    y=Y[:, 0],
+                    colorscale="Viridis",
+                    showscale=False,
+                )
+            ],
+            name=f"Time {time_points[-1]}",
+        )
+    )
+
+    fig.frames = frames
+
+    # Add sliders and animation controls
+    fig.update_layout(
+        title=f"3D KDE Animation for {construct} with Interpolation",
+        scene=dict(
+            xaxis_title=x_cat,
+            yaxis_title=y_cat,
+            zaxis_title="Density",
+        ),
+        updatemenus=[
+            {
+                "buttons": [
+                    {
+                        "args": [None, {"frame": {"duration": 100, "redraw": True}, "fromcurrent": True}],
+                        "label": "Play",
+                        "method": "animate",
+                    },
+                    {
+                        "args": [[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate", "transition": {"duration": 0}}],
+                        "label": "Pause",
+                        "method": "animate",
+                    },
+                ],
+                "direction": "left",
+                "pad": {"r": 10, "t": 87},
+                "showactive": False,
+                "type": "buttons",
+                "x": 0.1,
+                "xanchor": "right",
+                "y": 0,
+                "yanchor": "top",
+            }
+        ],
+        sliders=[
+            {
+                "steps": [
+                    {
+                        "args": [[f"Time {step.name.split()[1]}"], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                        "label": step.name.split()[1],
+                        "method": "animate",
+                    }
+                    for step in frames
                 ],
                 "currentvalue": {"font": {"size": 20}, "prefix": "Time: ", "visible": True, "xanchor": "center"},
                 "transition": {"duration": 300, "easing": "cubic-in-out"},

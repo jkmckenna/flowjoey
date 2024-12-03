@@ -12,3 +12,4 @@ FlowCytometryTools>=0.5.1
 wxpython
 plotly
 nbformat>=4.2.0
+tqdm
