@@ -10,3 +10,4 @@ seaborn
 ipykernel
 FlowCytometryTools>=0.5.1
 wxpython
+plotly

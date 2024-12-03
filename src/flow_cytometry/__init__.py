@@ -10,7 +10,7 @@ from .predefined_gates import predefined_gates
 from .well_functions import count_events, calculate_median_gfp
 from .load_adata import load_adata
 from .rolling_average import rolling_average
-from .flow_animation import kde_2d_evolution, anim_flow
+from .flow_animation import kde_2d_evolution, anim_flow, plot_interactive_3d_kde
 
 from importlib.metadata import version
 
@@ -30,5 +30,6 @@ __all__ = [
     "predefined_gates",
     "rolling_average",
     "kde_2d_evolution",
-    "anim_flow"
+    "anim_flow",
+    "plot_interactive_3d_kde"
 ]
