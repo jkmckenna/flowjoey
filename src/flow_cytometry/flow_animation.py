@@ -57,7 +57,7 @@ def kde_2d_evolution(adata, x_cat, y_cat, constructs=False):
                 adata.uns[f'{construct}_kde_2d_values'] = False
                 print(f"KDE calculation failed for {construct}. Skipping this construct.")
 
-def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50, levels=20, outdir='', save_gif=False, save_html=False, xlim=False, ylim=False, zlim=False, plot_3d=False):
+def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50, levels=20, outdir='', save_gif=False, save_html=False, xlim=False, ylim=False, zlim=False, plot_3d=False, add_histograms=False):
     """
     Animate the 2D KDE plot.
     """
@@ -66,6 +66,7 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     from matplotlib.animation import FuncAnimation, PillowWriter, HTMLWriter
+    from matplotlib.gridspec import GridSpec
 
     construct_subset = adata.obs[adata.obs['Construct'] == construct]
     time_points = construct_subset['time_cat'].cat.categories
@@ -88,26 +89,39 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
 
     if type(adata.uns[f'{construct}_kde_2d_values']) == list:
 
-        fig = plt.figure(figsize=(10, 8)) if plot_3d else plt.figure(figsize=(6, 6))
-        ax = fig.add_subplot(111, projection='3d') if plot_3d else fig.add_subplot(111)
+        # Create figure
+        if add_histograms and not plot_3d:
+            fig = plt.figure(figsize=(10, 8))
+            gs = GridSpec(4, 4, figure=fig)
+            ax_main = fig.add_subplot(gs[1:4, 0:3])  # Main KDE plot
+            ax_top = fig.add_subplot(gs[0, 0:3], sharex=ax_main)  # X-axis histogram
+            ax_right = fig.add_subplot(gs[1:4, 3], sharey=ax_main)  # Y-axis histogram
+            plt.setp(ax_top.get_xticklabels(), visible=False)
+            plt.setp(ax_right.get_yticklabels(), visible=False)
+        else:
+            fig = plt.figure(figsize=(10, 8)) if plot_3d else plt.figure(figsize=(6, 6))
+            ax_main = fig.add_subplot(111, projection='3d') if plot_3d else fig.add_subplot(111)
 
         # Initialize plot
         def init():
             """
             Init function for the animation.
             """
-            ax.clear()
-            ax.set_xlim(x_min, x_max)
-            ax.set_ylim(y_min, y_max)
-            ax.set_xlabel(x_cat)
-            ax.set_ylabel(y_cat)
+            ax_main.clear()
+            if add_histograms and not plot_3d:
+                ax_top.clear()
+                ax_right.clear()
+            ax_main.set_xlim(x_min, x_max)
+            ax_main.set_ylim(y_min, y_max)
+            ax_main.set_xlabel(x_cat)
+            ax_main.set_ylabel(y_cat)
             if plot_3d:
-                ax.set_zlabel("Density")
+                ax_main.set_zlabel("Density")
             else:
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-            ax.set_title(f"{construct} at 0 hours", pad=20)
-            return ax,
+                ax_main.spines['top'].set_visible(False)
+                ax_main.spines['right'].set_visible(False)
+            ax_main.set_title(f"{construct} at 0 hours", pad=20)
+            return ax_main,
 
         # Interpolation function
         def interpolate_kde(frame_idx):
@@ -136,7 +150,10 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
             """
             Update function for simulating KDE evolution
             """
-            ax.clear()
+            ax_main.clear()
+            if add_histograms and not plot_3d:
+                ax_top.clear()
+                ax_right.clear()
 
             if frame < total_frames:  # Forward
                 current_frame = frame
@@ -145,25 +162,37 @@ def anim_flow(adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50
 
             Z, interpolated_time = interpolate_kde(current_frame)
 
-            ax.set_xlim(x_min, x_max)
-            ax.set_ylim(y_min, y_max)
-            ax.set_xlabel(x_cat)
-            ax.set_ylabel(y_cat)
-            ax.set_title(f"{construct} at {interpolated_time:.1f} hours", pad=20)
+            ax_main.set_xlim(x_min, x_max)
+            ax_main.set_ylim(y_min, y_max)
+            ax_main.set_xlabel(x_cat)
+            ax_main.set_ylabel(y_cat)
+            ax_main.set_title(f"{construct} at {interpolated_time:.1f} hours", pad=20)
 
-            if not plot_3d:
-                # 2D plotting
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                contour = ax.contour(X, Y, Z, levels=levels, cmap="viridis")
-                return contour.collections
-            else:
+            if plot_3d:
                 # 3D plotting
-                ax.plot_surface(X, Y, Z, cmap="viridis", edgecolor="k", alpha=0.9)
-                ax.set_zlim(z_min, z_max)
-                ax.set_zlabel("Density")
-                return ax,
+                ax_main.plot_surface(X, Y, Z, cmap="viridis", edgecolor="k", alpha=0.9)
+                ax_main.set_zlim(z_min, z_max)
+                ax_main.set_zlabel("Density")
+                return ax_main,
+    
+            else:
+                # 2D plotting
+                ax_main.spines['top'].set_visible(False)
+                ax_main.spines['right'].set_visible(False)
+                contour = ax_main.contour(X, Y, Z, levels=levels, cmap="viridis")
 
+                if add_histograms:
+                    # Update histograms
+                    current_data = construct_subset[
+                        construct_subset['time_cat'] == time_points[current_frame // num_steps]
+                    ]
+                    ax_top.hist(current_data[x_cat], bins=30, color="blue", alpha=0.6)
+                    ax_top.set_ylabel("Count")
+
+                    ax_right.hist(current_data[y_cat], bins=30, color="green", alpha=0.6, orientation="horizontal")
+                    ax_right.set_xlabel("Count")
+
+                return contour.collections
             
         if plot_3d:
            print(f"Animating 3D KDE for {construct}")
