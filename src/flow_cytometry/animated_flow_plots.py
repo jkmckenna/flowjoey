@@ -115,19 +115,24 @@ def anim_flow_combined_v2(
         max_X_density = 0
 
         if time_per_frame:
-            frame_indices = [
-                np.searchsorted(time_points, t) for t in frame_times
-            ]
+            frame_indices = [np.searchsorted(time_points, t) for t in frame_times]
             for t_idx, t in zip(frame_indices, frame_times):
                 start_idx = t_idx - 1 if t_idx > 0 else 0
                 end_idx = min(t_idx, len(kde_values) - 1)
-                alpha = (t - time_points[start_idx]) / (time_points[end_idx] - time_points[start_idx])
-                Z = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
-                interpolated_kdes.append(Z)
-                interpolated_times.append(t)
+                # Avoid division by zero
+                if start_idx == end_idx or time_points[end_idx] == time_points[start_idx]:
+                    Z = kde_values[start_idx]  # Use the KDE of the single time point
+                else:
+                    alpha = (t - time_points[start_idx]) / (time_points[end_idx] - time_points[start_idx])
+                    Z = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
+
                 y_density = np.max(np.sum(Z, axis=1))
                 x_density = np.max(np.sum(Z, axis=0))
-                if y_density >
+                if y_density > max_Y_density:
+                    max_Y_density = y_density
+                if x_density > max_X_density:
+                    max_X_density = x_density                
+            
 
         else:
             for frame_idx in range(total_frames):
@@ -138,6 +143,15 @@ def anim_flow_combined_v2(
                 t = (1 - alpha) * float(time_points[start_idx]) + alpha * float(time_points[end_idx])
                 interpolated_kdes.append(Z)
                 interpolated_times.append(t)
+                y_density = np.max(np.sum(Z, axis=1))
+                x_density = np.max(np.sum(Z, axis=0))
+                if y_density > max_Y_density:
+                    max_Y_density = y_density
+                if x_density > max_X_density:
+                    max_X_density = x_density  
+
+        # Initialize and run animation with manual progress bar
+        pbar = tqdm(total=total_frames, desc="Rendering Frames")
 
         def update(frame):
             ax_main.clear()
@@ -154,6 +168,8 @@ def anim_flow_combined_v2(
             ax_main.set_xlabel(x_cat)
             ax_main.set_ylabel(y_cat)
             ax_main.set_title(f"{construct} at {interpolated_time:.1f} hours", pad=20)
+            ax_main.spines['top'].set_visible(False)
+            ax_main.spines['right'].set_visible(False)
 
             pbar.update(1)
 
@@ -170,17 +186,23 @@ def anim_flow_combined_v2(
                     ax_top.bar(X[0, :], np.sum(Z, axis=0), width=np.diff(X[0, :])[0], color="blue", alpha=0.6)
                     ax_top.set_ylabel("Density")
                     ax_top.set_title(f"{construct} KDE at {interpolated_time:.1f} hours", fontsize=14, pad=20)
+                    ax_top.set_ylim(0, max_X_density)
 
                     ax_right.barh(Y[:, 0], np.sum(Z, axis=1), height=np.diff(Y[:, 0])[0], color="green", alpha=0.6)
                     ax_right.set_xlabel("Density")
+                    ax_right.set_xlim(0, max_Y_density)
+
+                    ax_top.spines['top'].set_visible(False)
+                    ax_top.spines['right'].set_visible(False)
+                    ax_top.spines['left'].set_visible(False)
+                    ax_right.spines['top'].set_visible(False)
+                    ax_right.spines['right'].set_visible(False)
+                    ax_right.spines['left'].set_visible(False)
 
                     plt.setp(ax_top.get_xticklabels(), visible=False)
                     plt.setp(ax_right.get_yticklabels(), visible=False)
 
                 return contour.collections
-
-        # Initialize and run animation with manual progress bar
-        pbar = tqdm(total=total_frames, desc="Rendering Frames")
 
         ani = FuncAnimation(fig, update, frames=total_frames, blit=False, interval=40)
 
