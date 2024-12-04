@@ -128,6 +128,7 @@ def anim_flow_combined_v2(
 
                 interpolated_kdes.append(Z)
                 interpolated_times.append(t)
+
                 y_density = np.max(np.sum(Z, axis=1))
                 x_density = np.max(np.sum(Z, axis=0))
                 if y_density > max_Y_density:
@@ -143,8 +144,10 @@ def anim_flow_combined_v2(
                 alpha = (frame_idx % num_steps) / num_steps
                 Z = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
                 t = (1 - alpha) * float(time_points[start_idx]) + alpha * float(time_points[end_idx])
+
                 interpolated_kdes.append(Z)
                 interpolated_times.append(t)
+
                 y_density = np.max(np.sum(Z, axis=1))
                 x_density = np.max(np.sum(Z, axis=0))
                 if y_density > max_Y_density:
@@ -155,7 +158,7 @@ def anim_flow_combined_v2(
         # Initialize and run animation with manual progress bar
         pbar = tqdm(total=total_frames, desc="Rendering Frames")
 
-        def update(frame):
+        def update_frame(frame):
             ax_main.clear()
             if add_histograms and not plot_3d:
                 ax_top.clear()
@@ -222,9 +225,9 @@ def anim_flow_combined_v2(
                 pbar.update(1)
                 return contour.collections
 
-        ani = FuncAnimation(fig, update, frames=total_frames, blit=False, interval=40)
+        ani = FuncAnimation(fig, update_frame, frames=total_frames, blit=False, interval=40)
 
-        pbar.close()
+        #pbar.close()
 
         if save_gif:
             output_gif = os.path.join(outdir, f"{prefix}_{construct}_animation.gif")
@@ -590,7 +593,7 @@ def anim_flow_2D_v1(adata, construct, x_cat, y_cat, time_per_frame=False, num_st
 
         pbar = tqdm(total=total_frames, desc="Rendering Frames")
 
-        def update(frame, levels=levels):
+        def update_frame(frame, levels=levels):
             """
             Update function for simulating KDE evolution
             """
@@ -637,7 +640,7 @@ def anim_flow_2D_v1(adata, construct, x_cat, y_cat, time_per_frame=False, num_st
 
 
         num_frames = total_frames * 2  # Double for forward and reverse
-        ani = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False, interval=40)
+        ani = FuncAnimation(fig, update_frame, frames=num_frames, init_func=init, blit=False, interval=40)
         pbar.close()  # Close progress bar
 
         if save_gif:
@@ -728,7 +731,7 @@ def anim_flow_3D_v1(adata, construct, x_cat, y_cat, time_per_frame=False, num_st
 
         pbar = tqdm(total=total_frames, desc="Rendering Frames")
 
-        def update(frame):
+        def update_frame(frame):
             """
             Update function for simulating KDE evolution
             """
@@ -755,7 +758,7 @@ def anim_flow_3D_v1(adata, construct, x_cat, y_cat, time_per_frame=False, num_st
             return ax_main,
 
         num_frames = total_frames * 2  # Double for forward and reverse
-        ani = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False, interval=40)
+        ani = FuncAnimation(fig, update_frame, frames=num_frames, init_func=init, blit=False, interval=40)
         pbar.close()  # Close progress bar
 
         if save_gif:
@@ -874,7 +877,7 @@ def anim_flow_combined_v1(adata, construct, x_cat, y_cat, time_per_frame=False, 
             interpolated_kde = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
             return interpolated_kde, current_time
 
-        def update(frame, levels=levels):
+        def update_frame(frame, levels=levels):
             """
             Update function for simulating KDE evolution
             """
@@ -929,7 +932,7 @@ def anim_flow_combined_v1(adata, construct, x_cat, y_cat, time_per_frame=False, 
                 return contour.collections
 
         num_frames = total_frames * 2  # Double for forward and reverse
-        ani = FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False, interval=40)
+        ani = FuncAnimation(fig, update_frame, frames=num_frames, init_func=init, blit=False, interval=40)
         pbar.close()  # Close progress bar
 
         if save_gif:

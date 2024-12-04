@@ -17,6 +17,7 @@ def rolling_average_plot(adata, groupby, intensity_col, target_col, window_size,
     # Note: need to add plotting param dict as input for xlim and ylim, and figsize
     """
     import os
+    import numpy as np
     import matplotlib.pyplot as plt
 
     construct_col, time_col = groupby
@@ -39,12 +40,16 @@ def rolling_average_plot(adata, groupby, intensity_col, target_col, window_size,
         ax.spines['right'].set_visible(False)
         for time_cat in adata.obs[time_col].cat.categories:
             proportion_pos = adata.obs[(adata.obs[construct_col] == construct) & (adata.obs[time_col] == time_cat)][target_col].mean()
-            df = adata.uns[f"{construct}_{time_cat}"]
-            plt.plot(
-                df[intensity_col],
-                df[f'rolling_{target_col}'],
-                label=f'{time_cat} hrs with {proportion_pos:.2f} proportion GFP+'
-            )
+            try:
+                df = adata.uns[f"{construct}_{time_cat}"]
+                plt.plot(
+                    np.array(df[intensity_col]),
+                    np.array(df[f'rolling_{target_col}']),
+                    label=f'{time_cat} hrs with {proportion_pos:.2f} proportion GFP+'
+                )
+            except KeyError as e:
+                print(f"Error accessing data for {construct}_{time_cat}: {e}")
+                continue                
         plt.legend(
             title='Timepoint', 
             loc='center left', 
