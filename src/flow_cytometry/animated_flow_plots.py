@@ -126,6 +126,8 @@ def anim_flow_combined_v2(
                     alpha = (t - time_points[start_idx]) / (time_points[end_idx] - time_points[start_idx])
                     Z = (1 - alpha) * kde_values[start_idx] + alpha * kde_values[end_idx]
 
+                interpolated_kdes.append(Z)
+                interpolated_times.append(t)
                 y_density = np.max(np.sum(Z, axis=1))
                 x_density = np.max(np.sum(Z, axis=0))
                 if y_density > max_Y_density:
@@ -171,26 +173,41 @@ def anim_flow_combined_v2(
             ax_main.spines['top'].set_visible(False)
             ax_main.spines['right'].set_visible(False)
 
-            pbar.update(1)
-
             if plot_3d:
                 ax_main.plot_surface(X, Y, Z, cmap="viridis", edgecolor="k", alpha=0.9)
                 ax_main.set_zlim(z_min, z_max)
                 ax_main.set_zlabel("Density")
+                pbar.update(1)
                 return ax_main,
             else:
                 contour = ax_main.contour(X, Y, Z, levels=levels, cmap="viridis")
 
                 if add_histograms:
                     # Marginal histograms from KDE
-                    ax_top.bar(X[0, :], np.sum(Z, axis=0), width=np.diff(X[0, :])[0], color="blue", alpha=0.6)
+                    top_density = np.sum(Z, axis=0)
+                    top_density_normalized = top_density / np.sum(top_density)
+                    cumulative_top_density = np.cumsum(top_density_normalized)
+                    ax_top.bar(X[0, :], top_density, width=np.diff(X[0, :])[0], color="blue", alpha=0.6)
                     ax_top.set_ylabel("Density")
                     ax_top.set_title(f"{construct} KDE at {interpolated_time:.1f} hours", fontsize=14, pad=20)
                     ax_top.set_ylim(0, max_X_density)
+                    
+                    top_median_index = np.searchsorted(cumulative_top_density, 0.5)
+                    median_top_position = X[0, :][top_median_index]
+                    ax_top.axvline(median_top_position, color='red', linestyle='-', linewidth=1.5)
+                    ax_top.text(median_top_position, max_X_density*1, f'Median: {median_top_position:.2f}', color='red', ha="center", va="bottom")
 
-                    ax_right.barh(Y[:, 0], np.sum(Z, axis=1), height=np.diff(Y[:, 0])[0], color="green", alpha=0.6)
+                    right_density = np.sum(Z, axis=1)
+                    right_density_normalized = right_density / np.sum(right_density)
+                    cumulative_right_density = np.cumsum(right_density_normalized)
+                    ax_right.barh(Y[:, 0], right_density, height=np.diff(Y[:, 0])[0], color="green", alpha=0.6)
                     ax_right.set_xlabel("Density")
                     ax_right.set_xlim(0, max_Y_density)
+                    
+                    right_median_index = np.searchsorted(cumulative_right_density, 0.5)
+                    median_right_position = Y[:, 0][right_median_index]
+                    ax_right.axhline(median_right_position, color='red', linestyle='-', linewidth=1.5)
+                    ax_right.text(max_Y_density*0.5, median_right_position*1.05, f'Median: {median_right_position:.0f}', color='red', ha="center", va="bottom")
 
                     ax_top.spines['top'].set_visible(False)
                     ax_top.spines['right'].set_visible(False)
@@ -202,6 +219,7 @@ def anim_flow_combined_v2(
                     plt.setp(ax_top.get_xticklabels(), visible=False)
                     plt.setp(ax_right.get_yticklabels(), visible=False)
 
+                pbar.update(1)
                 return contour.collections
 
         ani = FuncAnimation(fig, update, frames=total_frames, blit=False, interval=40)
@@ -218,7 +236,7 @@ def anim_flow_combined_v2(
             ani.save(output_html, writer=HTMLWriter(fps=25))
             print(f"Animation saved to {output_html}")
 
-    return ani
+        return ani
 
 
 ## 3d Plotting Functions ##
