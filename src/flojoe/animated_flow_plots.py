@@ -62,7 +62,7 @@ def kde_2d_evolution(adata, x_cat, y_cat, constructs=False):
 ## 2D Plotting Functions ##
 def anim_flow_combined_v2(
     adata, construct, x_cat, y_cat, time_per_frame=False, num_steps=50, levels=20,
-    outdir='', save_gif=False, save_html=False, xlim=None, ylim=None, zlim=None,
+    outdir='', save_gif=False, save_html=False, save_mp4=False, xlim=None, ylim=None, zlim=None,
     plot_3d=False, add_histograms=False
 ):
     """
@@ -231,12 +231,18 @@ def anim_flow_combined_v2(
 
         if save_gif:
             output_gif = os.path.join(outdir, f"{prefix}_{construct}_animation.gif")
-            ani.save(output_gif, writer=PillowWriter(fps=25))
+            ani.save(output_gif, writer=PillowWriter(fps=25), dpi=300)
             print(f"Animation saved to {output_gif}")
 
         if save_html:
             output_html = os.path.join(outdir, f"{prefix}_{construct}_animation.html")
-            ani.save(output_html, writer=HTMLWriter(fps=25))
+            ani.save(output_html, writer=HTMLWriter(fps=25), dpi=300)
+            print(f"Animation saved to {output_html}")
+
+        if save_mp4:
+            from matplotlib.animation import FFMpegWriter
+            output_html = os.path.join(outdir, f"{prefix}_{construct}_animation.mp4")
+            ani.save(output_html, writer=FFMpegWriter(fps=25), dpi=300)
             print(f"Animation saved to {output_html}")
 
         return ani
