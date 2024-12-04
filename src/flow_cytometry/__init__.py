@@ -10,7 +10,8 @@ from .predefined_gates import predefined_gates
 from .well_functions import count_events, calculate_median_gfp
 from .load_adata import load_adata
 from .rolling_average import rolling_average
-from .flow_animation import *
+from .animated_flow_plots import *
+from .modeling_plots import rolling_average_plot
 
 from importlib.metadata import version
 
@@ -33,5 +34,6 @@ __all__ = [
     "anim_flow",
     "plot_interactive_3d_kde",
     "plotly_animate_kde",
-    "plotly_animate_kde_with_interpolation"
+    "plotly_animate_kde_with_interpolation",
+    "rolling_average_plot"
 ]
