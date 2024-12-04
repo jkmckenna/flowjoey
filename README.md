@@ -1,2 +1,2 @@
-# flow_cytometry
+# flojoe
  Python based flow cytometry analyses
