@@ -207,7 +207,7 @@ def anim_flow_combined_v2(
                     right_median_index = np.searchsorted(cumulative_right_density, 0.5)
                     median_right_position = Y[:, 0][right_median_index]
                     ax_right.axhline(median_right_position, color='red', linestyle='-', linewidth=1.5)
-                    ax_right.text(max_Y_density*0.5, median_right_position*1.05, f'Median: {median_right_position:.0f}', color='red', ha="center", va="bottom")
+                    ax_right.text(max_Y_density*0.5, median_right_position, f'Median: {median_right_position:.0f}', color='red', ha="center", va="bottom")
 
                     ax_top.spines['top'].set_visible(False)
                     ax_top.spines['right'].set_visible(False)
