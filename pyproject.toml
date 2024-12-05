@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "flojoe"
 description = "Flow cytometry analysis in Python."
 version = "0.0.1"
-requires-python = "3.9"
+requires-python = ">=3.9"
 license = "MIT"
 authors = [
     {name = "Joseph McKenna"}
