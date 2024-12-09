@@ -1,4 +1,4 @@
-"""flojoe"""
+"""flowjoey"""
 
 import logging
 import warnings
@@ -15,7 +15,7 @@ from .modeling_plots import rolling_average_plot
 
 from importlib.metadata import version
 
-package_name = "flow_cytometry"
+package_name = "flowjoey"
 __version__ = version(package_name)
 
 __all__ = [
