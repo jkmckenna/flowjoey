@@ -1,6 +1,6 @@
 #rolling_average
 
-def rolling_average(adata, groupby, intensity_col, target_col, window_size, constructs=False):
+def rolling_average(adata, groupby, intensity_col, target_col, window_size, constructs=False, interpolate=False, interpolation_bounds=[0,10], interpolation_step_size=0.01):
     """
     Take a dataframe and roll a window over the intensity column values and calculate the average value within a target column.
 
@@ -17,6 +17,8 @@ def rolling_average(adata, groupby, intensity_col, target_col, window_size, cons
     
     """
     from tqdm import tqdm
+    import numpy as np
+    import pandas as pd
 
     construct_col, time_col = groupby
 
@@ -24,8 +26,17 @@ def rolling_average(adata, groupby, intensity_col, target_col, window_size, cons
         subset_mask = adata.obs[construct_col].isin(constructs)
         subset = adata[subset_mask].copy()
         grouped = subset.obs.groupby(groupby)
+        constructs_to_interpolate = constructs
     else:
         grouped = adata.obs.groupby(groupby)
+        constructs_to_interpolate = adata.obs[construct_col].cat.categories
+
+    if interpolate:
+        from scipy.interpolate import interp1d
+        lower_bound, upper_bound = interpolation_bounds
+        interpolated_x = np.arange(lower_bound, upper_bound + interpolation_step_size, interpolation_step_size)
+        for construct in constructs_to_interpolate:
+            adata.uns[f'{construct}_rolling_average_interpolated'] = pd.DataFrame(index=interpolated_x)
 
     for (construct, time_cat), group in tqdm(grouped, desc="Processing Groups", total=len(grouped)):
         if f"{construct}_{time_cat}" in adata.uns:
@@ -42,3 +53,9 @@ def rolling_average(adata, groupby, intensity_col, target_col, window_size, cons
             group[f"rolling_{target_col}"] = result
 
             adata.uns[f"{construct}_{time_cat}"] = group[[intensity_col, f'rolling_{target_col}']]
+
+            if interpolate:
+                interp_func = interp1d(group[intensity_col], group[f'rolling_{target_col}'], kind='linear', bounds_error=False, fill_value=np.nan)
+                interpolated_y = interp_func(interpolated_x)
+                adata.uns[f'{construct}_rolling_average_interpolated'][time_cat] = interpolated_y
+
